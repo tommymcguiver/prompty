@@ -21,7 +21,7 @@ class OpenAIExecutor(Invoker):
         self.kwargs = {
             key: value
             for key, value in self.prompty.model.configuration.items()
-            if key != "type" and key != "name"
+            if key not in ["type",  "name",  "deployment"]
         }
 
         self.api = self.prompty.model.api
