@@ -2,7 +2,7 @@ import importlib.metadata
 import typing
 from collections.abc import Iterator
 
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 
 from prompty.tracer import Tracer
 
@@ -115,4 +115,63 @@ class OpenAIExecutor(Invoker):
         str
             The parsed data
         """
-        return self.invoke(data)
+        with Tracer.start("OpenAI") as trace:
+            trace("type", "LLM")
+            trace("signature", "OpenAI.ctor")
+            trace("description", "OpenAI Constructor")
+            trace("inputs", self.kwargs)
+            client = AsyncOpenAI(
+                default_headers={
+                    "User-Agent": f"prompty/{VERSION}",
+                    "x-ms-useragent": f"prompty/{VERSION}",
+                },
+                **self.kwargs,
+            )
+            trace("result", client)
+
+        with Tracer.start("create") as trace:
+            trace("type", "LLM")
+            trace("description", "OpenAI Prompty Execution Invoker")
+
+            if self.api == "chat":
+                trace("signature", "OpenAI.chat.completions.create")
+                args = {
+                    "model": self.model,
+                    "messages": data if isinstance(data, list) else [data],
+                    **self.parameters,
+                }
+                trace("inputs", args)
+                response = await client.chat.completions.create(**args)
+
+            elif self.api == "completion":
+                trace("signature", "OpenAI.completions.create")
+                args = {
+                    "prompt": data.item,
+                    "model": self.deployment,
+                    **self.parameters,
+                }
+                trace("inputs", args)
+                response = await client.completions.create(**args)
+
+            elif self.api == "embedding":
+                trace("signature", "OpenAI.embeddings.create")
+                args = {
+                    "input": data if isinstance(data, list) else [data],
+                    "model": self.deployment,
+                    **self.parameters,
+                }
+                trace("inputs", args)
+                response = await client.embeddings.create(**args)
+
+            elif self.api == "image":
+                raise NotImplementedError("OpenAI Image API is not implemented yet")
+
+            # stream response
+            if isinstance(response, Iterator):
+                stream = PromptyStream("AzureOpenAIExecutor", response)
+                trace("result", stream)
+                return stream
+            else:
+                trace("result", response)
+                return response
+
