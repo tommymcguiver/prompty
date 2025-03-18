@@ -79,6 +79,8 @@ class PromptyChatParser(Invoker):
                     content_items.append(
                         {
                             "type": "image_url",
+                            "min_pixels": 512 * 28 * 28,
+                            "max_pixels": 2048 * 28 * 28,
                             "image_url": {
                                 "url": self.inline_image(
                                     matches[current_chunk][1].split(" ")[0].strip()
